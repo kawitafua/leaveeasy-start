@@ -53,12 +53,15 @@
       return '<div class="field-row"><span class="k">' + r[0] + "</span><span>" + r[1] + "</span></div>";
     }).join("");
 
-    // ปุ่มอนุมัติ / ไม่อนุมัติ ขึ้นเฉพาะใบที่ยังรอพิจารณา
+    // ปุ่มอนุมัติ / ไม่อนุมัติ / ลบ ขึ้นเฉพาะใบที่ยังรอพิจารณา
     if (ใบ.status === "รอพิจารณา") {
       html +=
         '<div class="btn-row">' +
         '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
         '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
+        "</div>" +
+        '<div class="btn-row">' +
+        '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลานี้</button>' +
         "</div>";
     } else {
       html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
@@ -69,6 +72,7 @@
     if (ใบ.status === "รอพิจารณา") {
       document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
       document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+      document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
     }
   }
 
@@ -93,6 +97,26 @@
       ปุ่มอนุมัติ.disabled = false;
       ปุ่มไม่อนุมัติ.disabled = false;
       alert("บันทึกสถานะไม่สำเร็จ: " + err.message);
+    });
+  }
+
+  // ── ลบใบลานี้ — ถามยืนยันก่อนเสมอ แล้วลบ approvals ก่อนลบเอกสารหลัก ──
+  function ลบใบลา() {
+    if (!confirm('ยืนยันการลบใบลา "' + ใบ.title + '" หรือไม่ — ลบแล้วกู้คืนไม่ได้')) return;
+
+    var ปุ่มลบ = document.getElementById("ปุ่มลบ");
+    ปุ่มลบ.disabled = true;
+
+    db.collection("leaveRequests").doc(รหัสใบลา).collection("approvals").get().then(function (snapshot) {
+      var ลบทั้งหมด = snapshot.docs.map(function (d) { return d.ref.delete(); });
+      return Promise.all(ลบทั้งหมด);
+    }).then(function () {
+      return db.collection("leaveRequests").doc(รหัสใบลา).delete();
+    }).then(function () {
+      location.href = "leave-requests.html";
+    }).catch(function (err) {
+      ปุ่มลบ.disabled = false;
+      alert("ลบไม่สำเร็จ: " + err.message);
     });
   }
 
