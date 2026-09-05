@@ -8,8 +8,38 @@
   var รหัสใบลา = ค่าจากURL("id");
   var กล่องใบลา = document.getElementById("กล่องใบลา");
   var กล่องความเห็น = document.getElementById("กล่องความเห็น");
+  var กล่องเขียนความเห็น = document.getElementById("กล่องเขียนความเห็น");
   var ใบ = null;
   var ความเห็น = [];
+  var ผู้ใช้ปัจจุบัน = null;
+
+  // ต้องรอทั้งข้อมูลใบลาและ role ของคนที่ล็อกอินอยู่ก่อน ถึงจะรู้ว่าจะโชว์ปุ่มไหนบ้าง
+  var ข้อมูลใบลาพร้อมแล้ว = false;
+  function ลองวาดถ้าพร้อม() {
+    if (!ข้อมูลใบลาพร้อมแล้ว || !ผู้ใช้ปัจจุบัน) return;
+    วาดใบลา();
+    วาดความเห็น();
+
+    // เขียนความเห็นได้ก็ต่อเมื่อพิจารณาใบลาได้ (manager/hr) หรือเป็นเจ้าของใบลานั้นเอง
+    var เขียนความเห็นได้ = พิจารณาได้() || เป็นเจ้าของใบ();
+    กล่องความเห็น.classList.remove("hidden");
+    กล่องเขียนความเห็น.classList.toggle("hidden", !เขียนความเห็นได้);
+    if (เขียนความเห็นได้) {
+      document.getElementById("ปุ่มส่งความเห็น").addEventListener("click", ส่งความเห็น);
+    }
+  }
+
+  รอผู้ใช้พร้อม(function (ค่า) {
+    ผู้ใช้ปัจจุบัน = ค่า;
+    ลองวาดถ้าพร้อม();
+  });
+
+  function พิจารณาได้() {
+    return ผู้ใช้ปัจจุบัน.role === "manager" || ผู้ใช้ปัจจุบัน.role === "hr";
+  }
+  function เป็นเจ้าของใบ() {
+    return ใบ.requesterId === ผู้ใช้ปัจจุบัน.uid;
+  }
 
   db.collection("leaveRequests").doc(รหัสใบลา).get().then(function (เอกสาร) {
     if (!เอกสาร.exists) {
@@ -26,11 +56,8 @@
         return c;
       });
 
-      วาดใบลา();
-      วาดความเห็น();
-      กล่องความเห็น.classList.remove("hidden");
-
-      document.getElementById("ปุ่มส่งความเห็น").addEventListener("click", ส่งความเห็น);
+      ข้อมูลใบลาพร้อมแล้ว = true;
+      ลองวาดถ้าพร้อม();
     });
   }).catch(function (err) {
     กล่องใบลา.innerHTML = "<p>โหลดข้อมูลไม่สำเร็จ: " + esc(err.message) + "</p>";
@@ -53,25 +80,31 @@
       return '<div class="field-row"><span class="k">' + r[0] + "</span><span>" + r[1] + "</span></div>";
     }).join("");
 
-    // ปุ่มอนุมัติ / ไม่อนุมัติ / ลบ ขึ้นเฉพาะใบที่ยังรอพิจารณา
-    if (ใบ.status === "รอพิจารณา") {
+    // ปุ่มอนุมัติ/ไม่อนุมัติ ขึ้นเฉพาะ manager/hr · ปุ่มลบ ขึ้นเฉพาะเจ้าของใบเอง · ทั้งคู่ต้องเป็นใบที่ยังรอพิจารณา
+    var แสดงปุ่มพิจารณา = ใบ.status === "รอพิจารณา" && พิจารณาได้();
+    var แสดงปุ่มลบ = ใบ.status === "รอพิจารณา" && เป็นเจ้าของใบ();
+
+    if (แสดงปุ่มพิจารณา) {
       html +=
         '<div class="btn-row">' +
         '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
         '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
-        "</div>" +
-        '<div class="btn-row">' +
-        '<button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลานี้</button>' +
         "</div>";
-    } else {
+    }
+    if (แสดงปุ่มลบ) {
+      html += '<div class="btn-row"><button type="button" class="btn-danger" id="ปุ่มลบ">ลบใบลานี้</button></div>';
+    }
+    if (ใบ.status !== "รอพิจารณา") {
       html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
     }
 
     กล่องใบลา.innerHTML = html;
 
-    if (ใบ.status === "รอพิจารณา") {
+    if (แสดงปุ่มพิจารณา) {
       document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
       document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+    }
+    if (แสดงปุ่มลบ) {
       document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
     }
   }

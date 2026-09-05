@@ -8,9 +8,16 @@
   var ที่วางตาราง = document.getElementById("ตารางประเภท");
   var ช่องชื่อใหม่ = document.getElementById("ชื่อประเภทใหม่");
   var กล่องเตือน = document.getElementById("เตือนประเภท");
+  var เป็นฝ่ายบุคคล = false;   // จัดการประเภทการลาได้เฉพาะ hr ตาม ACL.md
 
   วาดตาราง();
   document.getElementById("ปุ่มเพิ่ม").addEventListener("click", เพิ่มประเภท);
+
+  รอผู้ใช้พร้อม(function (ผู้ใช้) {
+    เป็นฝ่ายบุคคล = ผู้ใช้.role === "hr";
+    document.getElementById("การ์ดเพิ่มประเภท").classList.toggle("hidden", !เป็นฝ่ายบุคคล);
+    วาดตาราง();
+  });
 
   function วาดตาราง() {
     if (รายการ.length === 0) {
@@ -18,13 +25,17 @@
       return;
     }
 
-    var html = "<table><thead><tr><th>ชื่อประเภทการลา</th><th>จัดการ</th></tr></thead><tbody>";
+    var html = "<table><thead><tr><th>ชื่อประเภทการลา</th>" + (เป็นฝ่ายบุคคล ? "<th>จัดการ</th>" : "") + "</tr></thead><tbody>";
     รายการ.forEach(function (ประเภท) {
-      html +=
-        "<tr><td>" + esc(ประเภท.name) + "</td><td>" +
-        '<button type="button" class="btn-ghost" data-edit="' + esc(ประเภท.id) + '">แก้ไข</button> ' +
-        '<button type="button" class="btn-danger" data-del="' + esc(ประเภท.id) + '">ลบ</button>' +
-        "</td></tr>";
+      html += "<tr><td>" + esc(ประเภท.name) + "</td>";
+      if (เป็นฝ่ายบุคคล) {
+        html +=
+          "<td>" +
+          '<button type="button" class="btn-ghost" data-edit="' + esc(ประเภท.id) + '">แก้ไข</button> ' +
+          '<button type="button" class="btn-danger" data-del="' + esc(ประเภท.id) + '">ลบ</button>' +
+          "</td>";
+      }
+      html += "</tr>";
     });
     html += "</tbody></table>";
     ที่วางตาราง.innerHTML = html;

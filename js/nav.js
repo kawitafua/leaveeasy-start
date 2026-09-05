@@ -30,6 +30,10 @@
 // ─────────────────────────────────────────────────────────────
 // สัปดาห์ที่ 7: ยามเฝ้าล็อกอิน — หน้าไหนที่ไม่ใช่ login/signup
 // ต้องล็อกอินก่อนถึงจะอยู่ต่อได้ ไม่งั้นเด้งไปหน้าเข้าสู่ระบบ
+//
+// เพิ่มเติม: หลังล็อกอินแล้วไปอ่าน role จริงจาก users/{uid} เก็บไว้ที่
+// window.ผู้ใช้ปัจจุบัน = {uid, name, role} ให้หน้าอื่นเอาไปซ่อน/โชว์ปุ่มตาม ACL.md
+// (ดูฟังก์ชัน รอผู้ใช้พร้อม ด้านล่าง — ใช้รอค่านี้เพราะการอ่าน role เป็น async)
 // ─────────────────────────────────────────────────────────────
 (function () {
   var หน้าที่ไม่ต้องล็อกอิน = ["login.html", "signup.html"];
@@ -44,7 +48,16 @@
       return;
     }
     if (ผู้ใช้ && หน้านี้ต้องล็อกอิน) {
-      แสดงผู้ใช้ที่ล็อกอินอยู่(ผู้ใช้);
+      db.collection("users").doc(ผู้ใช้.uid).get().then(function (เอกสาร) {
+        window.ผู้ใช้ปัจจุบัน = {
+          uid: ผู้ใช้.uid,
+          name: ผู้ใช้.displayName || ผู้ใช้.email,
+          role: เอกสาร.exists ? เอกสาร.data().role : "employee"
+        };
+        แสดงผู้ใช้ที่ล็อกอินอยู่(window.ผู้ใช้ปัจจุบัน);
+        จำกัดเมนูตามบทบาท(window.ผู้ใช้ปัจจุบัน.role);
+        document.dispatchEvent(new CustomEvent("ผู้ใช้พร้อมแล้ว", { detail: window.ผู้ใช้ปัจจุบัน }));
+      });
     }
   });
 })();
@@ -55,7 +68,7 @@ function แสดงผู้ใช้ที่ล็อกอินอยู�
   กล่อง.innerHTML = "";
 
   var ชื่อ = document.createElement("span");
-  ชื่อ.textContent = "👤 " + (ผู้ใช้.displayName || ผู้ใช้.email);
+  ชื่อ.textContent = "👤 " + ผู้ใช้.name;
   กล่อง.appendChild(ชื่อ);
 
   var ปุ่มออกจากระบบ = document.createElement("button");
@@ -66,6 +79,26 @@ function แสดงผู้ใช้ที่ล็อกอินอยู�
     auth.signOut().then(function () { location.href = "login.html"; });
   });
   กล่อง.appendChild(ปุ่มออกจากระบบ);
+}
+
+// เมนู "ประเภทการลา" มีไว้ให้ฝ่ายบุคคล (hr) เท่านั้น ตาม ACL.md
+function จำกัดเมนูตามบทบาท(role) {
+  if (role === "hr") return;
+  var ลิงก์ประเภทการลา = document.querySelector('.navbar a[href="leave-types.html"]');
+  if (ลิงก์ประเภทการลา) ลิงก์ประเภทการลา.remove();
+}
+
+// หน้าอื่นที่ต้องรู้ role ก่อนวาดปุ่ม เรียกใช้ตัวนี้แทนการเดา timing เอง
+// ถ้า window.ผู้ใช้ปัจจุบัน มีค่าแล้วเรียก callback ทันที ไม่งั้นรอ event แล้วค่อยเรียก
+function รอผู้ใช้พร้อม(callback) {
+  if (window.ผู้ใช้ปัจจุบัน) {
+    callback(window.ผู้ใช้ปัจจุบัน);
+    return;
+  }
+  document.addEventListener("ผู้ใช้พร้อมแล้ว", function ฟัง(e) {
+    document.removeEventListener("ผู้ใช้พร้อมแล้ว", ฟัง);
+    callback(e.detail);
+  });
 }
 
 // แถบเตือนสีเหลือง ใช้ตอนที่ยังไม่ได้ตั้งค่า Firebase
