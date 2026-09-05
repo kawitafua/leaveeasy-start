@@ -1,31 +1,40 @@
 // ─────────────────────────────────────────────────────────────
 // js/leave-request-detail.js — หน้าที่ 3 รายละเอียดใบลา
-// สัปดาห์ที่ 6: อ่านจากข้อมูลปลอม
-// สัปดาห์ที่ 7: ปุ่มอนุมัติ/ไม่อนุมัติ แก้ฟิลด์ status ลง Firestore จริง
+// สัปดาห์ที่ 7: อ่านใบลา + ความเห็น จาก Firestore จริง
+// ปุ่มอนุมัติ/ไม่อนุมัติ แก้ฟิลด์ status ลง Firestore · ส่งความเห็นเขียนลงโฟลเดอร์ย่อย approvals จริง
 // ─────────────────────────────────────────────────────────────
 
 (function () {
   var รหัสใบลา = ค่าจากURL("id");
   var กล่องใบลา = document.getElementById("กล่องใบลา");
   var กล่องความเห็น = document.getElementById("กล่องความเห็น");
+  var ใบ = null;
+  var ความเห็น = [];
 
-  // หาใบลาจากข้อมูลปลอม บวกกับใบที่เพิ่งยื่นในหน้าที่ 2
-  var ใบลาที่ยื่นใหม่ = JSON.parse(sessionStorage.getItem("ใบลาที่ยื่นใหม่") || "[]");
-  var ใบ = window.LEAVE_DATA.leaveRequests.concat(ใบลาที่ยื่นใหม่)
-    .find(function (x) { return x.id === รหัสใบลา; });
+  db.collection("leaveRequests").doc(รหัสใบลา).get().then(function (เอกสาร) {
+    if (!เอกสาร.exists) {
+      กล่องใบลา.innerHTML = "<p>ไม่พบใบขอลาที่ต้องการ — อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>";
+      return;
+    }
+    ใบ = เอกสาร.data();
+    ใบ.id = เอกสาร.id;
 
-  if (!ใบ) {
-    กล่องใบลา.innerHTML = "<p>ไม่พบใบขอลาที่ต้องการ — อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง</p>";
-    return;
-  }
+    return db.collection("leaveRequests").doc(รหัสใบลา).collection("approvals").get().then(function (snapshot) {
+      ความเห็น = snapshot.docs.map(function (เอกสารความเห็น) {
+        var c = เอกสารความเห็น.data();
+        c.id = เอกสารความเห็น.id;
+        return c;
+      });
 
-  var ความเห็น = window.LEAVE_DATA.approvals.filter(function (c) { return c.requestId === ใบ.id; });
+      วาดใบลา();
+      วาดความเห็น();
+      กล่องความเห็น.classList.remove("hidden");
 
-  วาดใบลา();
-  วาดความเห็น();
-  กล่องความเห็น.classList.remove("hidden");
-
-  document.getElementById("ปุ่มส่งความเห็น").addEventListener("click", ส่งความเห็น);
+      document.getElementById("ปุ่มส่งความเห็น").addEventListener("click", ส่งความเห็น);
+    });
+  }).catch(function (err) {
+    กล่องใบลา.innerHTML = "<p>โหลดข้อมูลไม่สำเร็จ: " + esc(err.message) + "</p>";
+  });
 
   // ── วาดข้อมูลใบลาลงหน้าจอ ──
   function วาดใบลา() {
@@ -103,7 +112,7 @@
       }).join("");
   }
 
-  // ── ส่งความเห็นใหม่ ──
+  // ── ส่งความเห็นใหม่ — เขียนลงโฟลเดอร์ย่อย approvals ของใบนี้จริง ──
   function ส่งความเห็น() {
     var ช่อง = document.getElementById("ข้อความความเห็น");
     var เตือน = document.getElementById("เตือนความเห็น");
@@ -116,15 +125,26 @@
     }
     เตือน.classList.add("hidden");
 
+    var ปุ่มส่ง = document.getElementById("ปุ่มส่งความเห็น");
+    ปุ่มส่ง.disabled = true;
+
     // สัปดาห์ที่ 6 ยังไม่มีล็อกอิน จึงสมมติว่าผู้เขียนคือ สมหญิง รักงาน
-    ความเห็น.push({
-      id: "ap-ใหม่-" + Date.now(),
-      requestId: ใบ.id,
+    var ความเห็นใหม่ = {
       authorId: "u002", authorName: "สมหญิง รักงาน",
       message: ข้อความ,
       createdAt: เวลาตอนนี้()
+    };
+
+    db.collection("leaveRequests").doc(รหัสใบลา).collection("approvals").add(ความเห็นใหม่).then(function (เอกสารใหม่) {
+      ความเห็นใหม่.id = เอกสารใหม่.id;
+      ความเห็น.push(ความเห็นใหม่);
+      ช่อง.value = "";
+      วาดความเห็น();
+      ปุ่มส่ง.disabled = false;
+    }).catch(function (err) {
+      ปุ่มส่ง.disabled = false;
+      เตือน.textContent = "⚠️ ส่งความเห็นไม่สำเร็จ: " + err.message;
+      เตือน.classList.remove("hidden");
     });
-    ช่อง.value = "";
-    วาดความเห็น();
   }
 })();
