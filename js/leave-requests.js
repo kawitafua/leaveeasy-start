@@ -6,27 +6,36 @@
 (function () {
   var กล่อง = document.getElementById("ผลลัพธ์");
 
-  db.collection("leaveRequests").get().then(function (snapshot) {
-    var ใบลาทั้งหมด = snapshot.docs.map(function (เอกสาร) {
-      var ใบ = เอกสาร.data();
-      ใบ.id = เอกสาร.id;
-      return ใบ;
+  // ผู้ขอลา (employee) เห็นเฉพาะใบของตัวเอง ต้อง query ด้วย where("requesterId", "==", uid)
+  // เพราะกฎเฝ้าข้อมูลอนุญาตแบบนี้เท่านั้น (query กว้างไม่กรองจะโดนกฎบล็อกทั้งชุด)
+  // ผู้อนุมัติ/ฝ่ายบุคคล (manager/hr) เห็นได้ทุกใบเหมือนเดิม
+  รอผู้ใช้พร้อม(function (ผู้ใช้) {
+    var คำสั่งดึงข้อมูล = ผู้ใช้.role === "employee"
+      ? db.collection("leaveRequests").where("requesterId", "==", ผู้ใช้.uid)
+      : db.collection("leaveRequests");
+
+    คำสั่งดึงข้อมูล.get().then(function (snapshot) {
+      var ใบลาทั้งหมด = snapshot.docs.map(function (เอกสาร) {
+        var ใบ = เอกสาร.data();
+        ใบ.id = เอกสาร.id;
+        return ใบ;
+      });
+
+      // เรียงใบล่าสุดขึ้นก่อน (createdAt ใหม่ไปเก่า)
+      ใบลาทั้งหมด.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
+
+      // ถ้ามีสถานะติดมาท้าย URL ให้กรองเฉพาะสถานะนั้น
+      var สถานะที่กรอง = ค่าจากURL("status");
+      if (สถานะที่กรอง) {
+        ใบลาทั้งหมด = ใบลาทั้งหมด.filter(function (ใบ) { return ใบ.status === สถานะที่กรอง; });
+        document.querySelector(".subtitle").textContent =
+          "กำลังแสดงเฉพาะใบลาที่สถานะ " + สถานะที่กรอง + " · กดเมนู รายการใบลา เพื่อดูทั้งหมด";
+      }
+
+      แสดงตาราง(ใบลาทั้งหมด);
+    }).catch(function (err) {
+      กล่อง.innerHTML = "<p>โหลดข้อมูลไม่สำเร็จ: " + esc(err.message) + "</p>";
     });
-
-    // เรียงใบล่าสุดขึ้นก่อน (createdAt ใหม่ไปเก่า)
-    ใบลาทั้งหมด.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : -1; });
-
-    // ถ้ามีสถานะติดมาท้าย URL ให้กรองเฉพาะสถานะนั้น
-    var สถานะที่กรอง = ค่าจากURL("status");
-    if (สถานะที่กรอง) {
-      ใบลาทั้งหมด = ใบลาทั้งหมด.filter(function (ใบ) { return ใบ.status === สถานะที่กรอง; });
-      document.querySelector(".subtitle").textContent =
-        "กำลังแสดงเฉพาะใบลาที่สถานะ " + สถานะที่กรอง + " · กดเมนู รายการใบลา เพื่อดูทั้งหมด";
-    }
-
-    แสดงตาราง(ใบลาทั้งหมด);
-  }).catch(function (err) {
-    กล่อง.innerHTML = "<p>โหลดข้อมูลไม่สำเร็จ: " + esc(err.message) + "</p>";
   });
 
   function แสดงตาราง(รายการ) {

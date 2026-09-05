@@ -1,12 +1,36 @@
 rules_version = '2';
 
-// สัปดาห์ที่ 7: กฎขั้นต่ำ — ต้องล็อกอินก่อนถึงจะอ่าน/เขียนอะไรได้
-// ยังไม่แยกสิทธิ์ตามคนหรือตามบทบาท (employee/manager/hr) — เรื่องนั้นเป็นของสัปดาห์ที่ 8
-// {document=**} ครอบทุกโฟลเดอร์ รวมโฟลเดอร์ย่อย leaveRequests/{id}/approvals ด้วยในตัว
+// สัปดาห์ที่ 7→8: users / leaveTypes / approvals ยังใช้กฎขั้นต่ำ "ต้องล็อกอินก่อน" เหมือนเดิม
+// leaveRequests เพิ่มกฎการอ่าน: เห็นเฉพาะใบของตัวเอง เว้นแต่ role เป็น manager/hr ที่เห็นได้ทุกใบ
+// (ยังไม่จำกัดสิทธิ์การเขียน/แก้/ลบตาม ACL.md แบบละเอียด — ส่วนนั้นคือ Security Rules รายห้องเต็มรูปแบบของสัปดาห์ที่ 8)
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function canReviewAllRequests() {
+      return isSignedIn() && myRole() in ['manager', 'hr'];
+    }
+
+    match /users/{userId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /leaveTypes/{typeId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /leaveRequests/{requestId} {
+      allow read: if isSignedIn() &&
+        (resource.data.requesterId == request.auth.uid || canReviewAllRequests());
+      allow write: if isSignedIn();
+
+      match /approvals/{approvalId} {
+        allow read, write: if isSignedIn();
+      }
     }
   }
 }
