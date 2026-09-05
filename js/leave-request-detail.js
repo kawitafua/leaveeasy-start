@@ -152,9 +152,10 @@
     var ปุ่มส่ง = document.getElementById("ปุ่มส่งความเห็น");
     ปุ่มส่ง.disabled = true;
 
-    // สัปดาห์ที่ 6 ยังไม่มีล็อกอิน จึงสมมติว่าผู้เขียนคือ สมหญิง รักงาน
+    // สัปดาห์ที่ 7: authorId ต้องเป็น uid ของคนที่ล็อกอินอยู่จริง
+    var ผู้ใช้ = auth.currentUser;
     var ความเห็นใหม่ = {
-      authorId: "u002", authorName: "สมหญิง รักงาน",
+      authorId: ผู้ใช้.uid, authorName: ผู้ใช้.displayName || ผู้ใช้.email,
       message: ข้อความ,
       createdAt: เวลาตอนนี้()
     };

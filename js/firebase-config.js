@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
-// js/firebase-config.js — ตั้งค่า Firebase (สัปดาห์ที่ 6)
+// js/firebase-config.js — ตั้งค่า Firebase (สัปดาห์ที่ 6, เพิ่ม Auth สัปดาห์ที่ 7)
 // ใช้ Firebase SDK แบบ compat (CDN) ให้เข้ากับสไตล์ <script> ธรรมดาของโปรเจกต์นี้
-// ต้องโหลดไฟล์นี้หลัง firebase-app-compat.js และ firebase-firestore-compat.js เสมอ
+// ต้องโหลดไฟล์นี้หลัง firebase-app-compat.js, firebase-firestore-compat.js และ firebase-auth-compat.js เสมอ
 // ─────────────────────────────────────────────────────────────
 
 var firebaseConfig = {
@@ -15,3 +15,4 @@ var firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 var db = firebase.firestore();
+var auth = firebase.auth();

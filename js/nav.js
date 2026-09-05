@@ -21,12 +21,52 @@
     var active = m.href === หน้าปัจจุบัน ? ' class="active"' : "";
     html += '<a href="' + m.href + '"' + active + ">" + m.ชื่อ + "</a>";
   });
-  // ช่องว่างสำหรับแสดงชื่อคนที่ล็อกอินอยู่ (เติมค่าในสัปดาห์ที่ 7)
   html += '<span class="nav-user" id="navUser"></span></div>';
 
   var ที่วาง = document.getElementById("nav");
   if (ที่วาง) ที่วาง.innerHTML = html;
 })();
+
+// ─────────────────────────────────────────────────────────────
+// สัปดาห์ที่ 7: ยามเฝ้าล็อกอิน — หน้าไหนที่ไม่ใช่ login/signup
+// ต้องล็อกอินก่อนถึงจะอยู่ต่อได้ ไม่งั้นเด้งไปหน้าเข้าสู่ระบบ
+// ─────────────────────────────────────────────────────────────
+(function () {
+  var หน้าที่ไม่ต้องล็อกอิน = ["login.html", "signup.html"];
+  var หน้าปัจจุบัน = location.pathname.split("/").pop() || "index.html";
+  var หน้านี้ต้องล็อกอิน = หน้าที่ไม่ต้องล็อกอิน.indexOf(หน้าปัจจุบัน) === -1;
+
+  if (typeof auth === "undefined") return; // หน้านี้ยังไม่ได้โหลด Firebase Auth SDK
+
+  auth.onAuthStateChanged(function (ผู้ใช้) {
+    if (!ผู้ใช้ && หน้านี้ต้องล็อกอิน) {
+      location.href = "login.html";
+      return;
+    }
+    if (ผู้ใช้ && หน้านี้ต้องล็อกอิน) {
+      แสดงผู้ใช้ที่ล็อกอินอยู่(ผู้ใช้);
+    }
+  });
+})();
+
+function แสดงผู้ใช้ที่ล็อกอินอยู่(ผู้ใช้) {
+  var กล่อง = document.getElementById("navUser");
+  if (!กล่อง) return;
+  กล่อง.innerHTML = "";
+
+  var ชื่อ = document.createElement("span");
+  ชื่อ.textContent = "👤 " + (ผู้ใช้.displayName || ผู้ใช้.email);
+  กล่อง.appendChild(ชื่อ);
+
+  var ปุ่มออกจากระบบ = document.createElement("button");
+  ปุ่มออกจากระบบ.type = "button";
+  ปุ่มออกจากระบบ.className = "btn-ghost";
+  ปุ่มออกจากระบบ.textContent = "ออกจากระบบ";
+  ปุ่มออกจากระบบ.addEventListener("click", function () {
+    auth.signOut().then(function () { location.href = "login.html"; });
+  });
+  กล่อง.appendChild(ปุ่มออกจากระบบ);
+}
 
 // แถบเตือนสีเหลือง ใช้ตอนที่ยังไม่ได้ตั้งค่า Firebase
 function showConfigWarning(ข้อความ) {

@@ -38,13 +38,14 @@
     }
 
     var ประเภท = window.LEAVE_DATA.leaveTypes.find(function (t) { return t.id === ค่า.leaveTypeId; });
+    var ผู้ใช้ = auth.currentUser;
 
-    // สัปดาห์ที่ 6 ยังไม่มีล็อกอิน จึงสมมติว่าผู้ขอลาคือ สมชาย ใจดี
+    // สัปดาห์ที่ 7: requesterId ต้องเป็น uid ของคนที่ล็อกอินอยู่จริง
     var ใบใหม่ = {
       title: ค่า.title,
       reason: ค่า.reason,
       status: "รอพิจารณา",                       // ใบใหม่เริ่มที่ รอพิจารณา เสมอ
-      requesterId: "u001", requesterName: "สมชาย ใจดี",
+      requesterId: ผู้ใช้.uid, requesterName: ผู้ใช้.displayName || ผู้ใช้.email,
       approverId: "",      approverName: "",
       leaveTypeId: ประเภท.id, leaveTypeName: ประเภท.name,
       startDate: ค่า.startDate,
