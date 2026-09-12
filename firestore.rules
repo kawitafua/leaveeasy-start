@@ -31,6 +31,11 @@ service cloud.firestore {
       match /approvals/{approvalId} {
         allow read, write: if isSignedIn();
       }
+
+      // ประวัติทุกครั้งที่เรียกผู้ช่วย AI (input/output/createdAt) — สัปดาห์ที่ 8
+      match /aiLog/{logId} {
+        allow read, write: if isSignedIn();
+      }
     }
   }
 }

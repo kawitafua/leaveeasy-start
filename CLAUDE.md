@@ -62,6 +62,8 @@ There is no lint, build, or test command — this project intentionally has no t
   - `leaveTypes` — top-level
   - `leaveRequests` — top-level
   - `leaveRequests/{id}/approvals` — subcollection nested under each leave request
+  - `leaveRequests/{id}/aiLog` — subcollection nested under each leave request; one document per AI-summarize
+    call (`input`, `output`, `createdAt`), written on both success and failure — see week 8's AI assistant button
 
 - **Status is a one-way state machine** — the `status` field on a `leaveRequests` document holds exactly one of
   these 3 Thai string values, nothing else:
