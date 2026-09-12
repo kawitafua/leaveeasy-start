@@ -7,6 +7,9 @@
   var ฟอร์ม = document.getElementById("ฟอร์มใบลา");
   var ช่องประเภท = document.getElementById("leaveTypeId");
   var กล่องเตือน = document.getElementById("ข้อความเตือน");
+  var ปุ่มAI = document.getElementById("ปุ่มAI");
+  var กล่องผลลัพธ์AI = document.getElementById("ผลลัพธ์AI");
+  var ข้อความปุ่มAIปกติ = ปุ่มAI.textContent;
 
   // เติมรายการเลื่อนลงด้วยประเภทการลาที่มีอยู่
   window.LEAVE_DATA.leaveTypes.forEach(function (ประเภท) {
@@ -14,6 +17,94 @@
     ตัวเลือก.value = ประเภท.id;
     ตัวเลือก.textContent = ประเภท.name;
     ช่องประเภท.appendChild(ตัวเลือก);
+  });
+
+  // อ่านรายชื่อประเภทการลาที่มีอยู่จริงจาก dropdown เอง (ไม่อ้างแหล่งข้อมูลตรง ๆ)
+  // เพื่อให้ตรงกับสิ่งที่ผู้ใช้เห็นบนจอเสมอ ไม่ว่า dropdown จะถูกเติมมาจากที่ไหน
+  function ประเภทที่มีอยู่จริง() {
+    return Array.prototype.slice.call(ช่องประเภท.options)
+      .filter(function (ตัวเลือก) { return ตัวเลือก.value; })
+      .map(function (ตัวเลือก) { return { id: ตัวเลือก.value, name: ตัวเลือก.textContent }; });
+  }
+
+  function แสดงผลAI(ข้อความ, สำเร็จ) {
+    กล่องผลลัพธ์AI.textContent = ข้อความ;
+    กล่องผลลัพธ์AI.classList.remove("hidden", "alert-ai", "alert-error");
+    กล่องผลลัพธ์AI.classList.add(สำเร็จ ? "alert-ai" : "alert-error");
+  }
+
+  ปุ่มAI.addEventListener("click", function () {
+    var เหตุผล = document.getElementById("reason").value.trim();
+    if (!เหตุผล) {
+      เตือน("กรอกเหตุผลการลาก่อน ถึงจะให้ AI ช่วยจัดประเภทได้");
+      return;
+    }
+    if (!window.AI_CONFIG || !window.AI_CONFIG.openRouterApiKey) {
+      แสดงผลAI("ยังไม่ได้ตั้งค่า AI (ไม่มีคีย์ API) — กรุณาเลือกประเภทการลาเอง", false);
+      return;
+    }
+
+    var รายการประเภท = ประเภทที่มีอยู่จริง();
+    var ตัวควบคุมยกเลิก = new AbortController();
+    var หมดเวลา = setTimeout(function () { ตัวควบคุมยกเลิก.abort(); }, 15000);
+
+    ปุ่มAI.disabled = true;
+    ปุ่มAI.textContent = "AI กำลังช่วยจัดประเภท…";
+
+    var รายการสำหรับพรอมป์ = รายการประเภท
+      .map(function (t) { return "- " + t.id + ": " + t.name; })
+      .join("\n");
+
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: ตัวควบคุมยกเลิก.signal,
+      headers: {
+        "Authorization": "Bearer " + window.AI_CONFIG.openRouterApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: window.AI_CONFIG.model,
+        messages: [
+          {
+            role: "system",
+            content: "คุณคือผู้ช่วยจัดประเภทการลา ตอบกลับเป็น JSON เท่านั้น รูปแบบ {\"leaveTypeId\": \"...\"} " +
+              "ห้ามมีข้อความอื่นปนมา และต้องเลือก leaveTypeId จากรายการที่ให้เท่านั้น"
+          },
+          {
+            role: "user",
+            content: "เหตุผลการลา: " + เหตุผล + "\n\nรายการประเภทการลาที่มีอยู่จริง:\n" + รายการสำหรับพรอมป์
+          }
+        ]
+      })
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error((data && data.error && data.error.message) || ("HTTP " + res.status));
+        return data;
+      });
+    }).then(function (data) {
+      var เนื้อหา = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      var จับJSON = เนื้อหา && เนื้อหา.match(/\{[\s\S]*\}/);
+      var ผลลัพธ์ = จับJSON ? JSON.parse(จับJSON[0]) : null;
+      var idที่ได้ = ผลลัพธ์ && ผลลัพธ์.leaveTypeId;
+
+      var ประเภทที่ตรง = รายการประเภท.find(function (t) {
+        return t.id === idที่ได้ || t.name === idที่ได้;
+      });
+
+      if (!ประเภทที่ตรง) {
+        แสดงผลAI("จัดประเภทให้ไม่ได้ กรุณาเลือกเอง", false);
+        return;
+      }
+
+      ช่องประเภท.value = ประเภทที่ตรง.id;
+      แสดงผลAI("🤖 ข้อเสนอจาก AI — โปรดตรวจสอบก่อนยืนยัน: " + ประเภทที่ตรง.name, true);
+    }).catch(function () {
+      แสดงผลAI("จัดประเภทให้ไม่ได้ กรุณาเลือกเอง", false);
+    }).finally(function () {
+      clearTimeout(หมดเวลา);
+      ปุ่มAI.disabled = false;
+      ปุ่มAI.textContent = ข้อความปุ่มAIปกติ;
+    });
   });
 
   ฟอร์ม.addEventListener("submit", function (e) {
